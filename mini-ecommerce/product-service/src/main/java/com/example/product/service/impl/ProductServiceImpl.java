@@ -15,7 +15,9 @@ import com.example.product.repository.ProductRepository;
 import com.example.product.service.ProductFilter;
 import com.example.product.service.ProductService;
 import com.example.product.service.ProductSpecification;
+import com.example.product.exception.EventPublishException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -57,11 +60,15 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponse create(CreateProductRequest request) {
         Product product = productMapper.toEntity(request);
         Product saved = productRepository.save(product);
-        kafkaTemplate.send(KafkaConfig.PRODUCT_CREATED_TOPIC,
-                ProductCreatedEvent.builder()
-                        .productId(saved.getId())
-                        .occurredAt(Instant.now())
-                        .build());
+        try {
+            kafkaTemplate.send(KafkaConfig.PRODUCT_CREATED_TOPIC,
+                    ProductCreatedEvent.builder()
+                            .productId(saved.getId())
+                            .occurredAt(Instant.now())
+                            .build());
+        } catch (Exception e) {
+            log.warn("{}", new EventPublishException(KafkaConfig.PRODUCT_CREATED_TOPIC, e).getMessage());
+        }
         return productMapper.toResponse(saved);
     }
 
@@ -93,11 +100,15 @@ public class ProductServiceImpl implements ProductService {
             throw new ProductNotFoundException(id);
         }
         productRepository.deleteById(id);
-        kafkaTemplate.send(KafkaConfig.PRODUCT_DELETED_TOPIC,
-                ProductDeletedEvent.builder()
-                        .productId(id)
-                        .deletedAt(Instant.now())
-                        .build());
+        try {
+            kafkaTemplate.send(KafkaConfig.PRODUCT_DELETED_TOPIC,
+                    ProductDeletedEvent.builder()
+                            .productId(id)
+                            .deletedAt(Instant.now())
+                            .build());
+        } catch (Exception e) {
+            throw new EventPublishException(KafkaConfig.PRODUCT_DELETED_TOPIC, e);
+        }
     }
 
     @Override

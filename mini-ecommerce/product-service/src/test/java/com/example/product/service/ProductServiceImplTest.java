@@ -45,6 +45,7 @@ class ProductServiceImplTest {
 
     private Product product;
     private ProductResponse productResponse;
+    private ProductSummaryResponse productSummaryResponse;
     private UUID productId;
 
     @BeforeEach
@@ -60,6 +61,8 @@ class ProductServiceImplTest {
 
         productResponse = new ProductResponse(productId, "Laptop Pro", "High-end laptop",
                 new BigDecimal("4999.99"), ProductStatus.ACTIVE, Instant.now());
+        productSummaryResponse = new ProductSummaryResponse(productId, "Laptop Pro",
+                new BigDecimal("4999.99"), ProductStatus.ACTIVE);
     }
 
     // ── findAll ──────────────────────────────────────────────────────────────
@@ -68,7 +71,7 @@ class ProductServiceImplTest {
     void findAll_shouldReturnPageOfProductResponses() {
         given(productRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .willReturn(new PageImpl<>(List.of(product)));
-        given(productMapper.toResponse(product)).willReturn(productResponse);
+        given(productMapper.toSummary(product)).willReturn(productSummaryResponse);
 
         Page<ProductSummaryResponse> result = productService.findAll(new ProductFilter(null, null, null, null), Pageable.unpaged());
 
@@ -91,7 +94,7 @@ class ProductServiceImplTest {
         ProductFilter filter = new ProductFilter("laptop", new BigDecimal("100"), new BigDecimal("9999"), ProductStatus.ACTIVE);
         given(productRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .willReturn(new PageImpl<>(List.of(product)));
-        given(productMapper.toResponse(product)).willReturn(productResponse);
+        given(productMapper.toSummary(product)).willReturn(productSummaryResponse);
 
         Page<ProductSummaryResponse> result = productService.findAll(filter, Pageable.unpaged());
 
