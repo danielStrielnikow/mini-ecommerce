@@ -6,6 +6,7 @@ import com.example.inventory.dto.request.CreateInventoryRequest;
 import com.example.inventory.dto.response.InventoryResponse;
 import com.example.inventory.entity.Inventory;
 import com.example.inventory.exception.DuplicateInventoryException;
+import com.example.inventory.exception.InsufficientStockException;
 import com.example.inventory.exception.InventoryNotFoundException;
 import com.example.inventory.mapper.InventoryMapper;
 import com.example.inventory.repository.InventoryRepository;
@@ -143,6 +144,16 @@ class InventoryServiceImplTest {
         inventoryService.decreaseStock(productId, 3);
 
         then(kafkaTemplate).should(never()).send(eq("stock-depleted"), any());
+    }
+
+    @Test
+    void decreaseStock_whenInsufficientStock_shouldThrowInsufficientStockException() {
+        Inventory inventory = buildInventory(2);
+        given(inventoryRepository.findByProductId(productId)).willReturn(Optional.of(inventory));
+
+        assertThatThrownBy(() -> inventoryService.decreaseStock(productId, 5))
+                .isInstanceOf(InsufficientStockException.class);
+        then(inventoryRepository).should(never()).save(any());
     }
 
     @Test

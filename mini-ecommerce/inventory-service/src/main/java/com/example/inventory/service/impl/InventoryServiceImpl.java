@@ -7,6 +7,7 @@ import com.example.inventory.dto.request.CreateInventoryRequest;
 import com.example.inventory.dto.response.InventoryResponse;
 import com.example.inventory.entity.Inventory;
 import com.example.inventory.exception.DuplicateInventoryException;
+import com.example.inventory.exception.InsufficientStockException;
 import com.example.inventory.exception.InventoryNotFoundException;
 import com.example.inventory.mapper.InventoryMapper;
 import com.example.inventory.repository.InventoryRepository;
@@ -66,9 +67,7 @@ public class InventoryServiceImpl implements InventoryService {
                 .orElseThrow(() -> new InventoryNotFoundException(productId));
 
         if (inventory.getQuantity() < quantity) {
-            log.warn("Stock mismatch on event consume: productId={}, stock={}, requested={}",
-                    productId, inventory.getQuantity(), quantity);
-            return;
+            throw new InsufficientStockException(productId, inventory.getQuantity(), quantity);
         }
 
         inventory.setQuantity(inventory.getQuantity() - quantity);

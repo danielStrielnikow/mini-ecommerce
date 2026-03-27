@@ -8,8 +8,9 @@ import org.springframework.kafka.config.TopicBuilder;
 @Configuration
 public class KafkaConfig {
 
-    public static final String STOCK_DEPLETED_TOPIC = "stock-depleted";
-    public static final String STOCK_RESTORED_TOPIC = "stock-restored";
+    public static final String STOCK_DEPLETED_TOPIC   = "stock-depleted";
+    public static final String STOCK_RESTORED_TOPIC   = "stock-restored";
+    public static final String ORDER_CANCELLED_TOPIC  = "order-cancelled";
 
     @Bean
     public NewTopic stockDepletedTopic() {
@@ -19,5 +20,10 @@ public class KafkaConfig {
     @Bean
     public NewTopic stockRestoredTopic() {
         return TopicBuilder.name(STOCK_RESTORED_TOPIC).partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic orderCancelledTopic() {
+        return TopicBuilder.name(ORDER_CANCELLED_TOPIC).partitions(1).replicas(1).build();
     }
 }
