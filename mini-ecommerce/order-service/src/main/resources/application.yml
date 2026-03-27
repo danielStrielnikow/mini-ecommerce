@@ -23,7 +23,14 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
-        spring.json.add.type.headers: false
+        spring.json.type.mapping: >
+          order-created:com.example.events.OrderCreatedEvent,
+          order-cancelled:com.example.events.OrderCancelledEvent,
+          order-expired:com.example.events.OrderExpiredEvent,
+          product-created:com.example.events.ProductCreatedEvent,
+          product-deleted:com.example.events.ProductDeletedEvent,
+          stock-depleted:com.example.events.StockDepletedEvent,
+          stock-restored:com.example.events.StockRestoredEvent
     consumer:
       group-id: order-service
       auto-offset-reset: earliest
@@ -31,6 +38,14 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "com.example.events"
+        spring.json.type.mapping: >
+          order-created:com.example.events.OrderCreatedEvent,
+          order-cancelled:com.example.events.OrderCancelledEvent,
+          order-expired:com.example.events.OrderExpiredEvent,
+          product-created:com.example.events.ProductCreatedEvent,
+          product-deleted:com.example.events.ProductDeletedEvent,
+          stock-depleted:com.example.events.StockDepletedEvent,
+          stock-restored:com.example.events.StockRestoredEvent
 
 springdoc:
   api-docs:

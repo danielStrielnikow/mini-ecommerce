@@ -22,6 +22,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import com.example.order.client.InventoryClient;
 import com.example.order.client.ProductClient;
 import com.example.order.dto.response.ProductPriceResponse;
+import org.springframework.kafka.core.KafkaAdmin;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -50,9 +52,12 @@ class OrderIntegrationTest {
         registry.add("spring.jpa.properties.hibernate.dialect",
                 () -> "org.hibernate.dialect.PostgreSQLDialect");
         registry.add("spring.flyway.enabled", () -> "true");
-        // Kafka not needed — external clients are mocked via @MockBean
+        // Kafka not needed — KafkaTemplate and external clients are mocked via @MockBean
         registry.add("spring.kafka.bootstrap-servers", () -> "localhost:9999");
         registry.add("spring.kafka.producer.retries", () -> "0");
+        registry.add("spring.kafka.admin.fail-fast", () -> "false");
+        registry.add("spring.kafka.admin.operation-timeout", () -> "2");
+        registry.add("spring.kafka.listener.auto-startup", () -> "false");
     }
 
     @Autowired private TestRestTemplate restTemplate;
@@ -60,6 +65,8 @@ class OrderIntegrationTest {
 
     @MockBean private InventoryClient inventoryClient;
     @MockBean private ProductClient productClient;
+    @MockBean private KafkaTemplate<String, Object> kafkaTemplate;
+    @MockBean private KafkaAdmin kafkaAdmin;
 
     private final UUID productId = UUID.randomUUID();
 
