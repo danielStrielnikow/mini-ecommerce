@@ -11,9 +11,13 @@ import com.example.inventory.exception.InsufficientStockException;
 import com.example.inventory.exception.InventoryNotFoundException;
 import com.example.inventory.mapper.InventoryMapper;
 import com.example.inventory.repository.InventoryRepository;
+import com.example.inventory.service.InventoryFilter;
 import com.example.inventory.service.InventoryService;
+import com.example.inventory.service.InventorySpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +33,14 @@ public class InventoryServiceImpl implements InventoryService {
     private final InventoryRepository inventoryRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final InventoryMapper inventoryMapper;
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<InventoryResponse> findAll(InventoryFilter filter, Pageable pageable) {
+        return inventoryRepository
+                .findAll(InventorySpecification.withFilter(filter), pageable)
+                .map(inventoryMapper::toResponse);
+    }
 
     @Override
     @Transactional(readOnly = true)

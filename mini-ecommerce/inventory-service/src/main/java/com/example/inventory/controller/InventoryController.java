@@ -3,11 +3,15 @@ package com.example.inventory.controller;
 import com.example.inventory.dto.request.CreateInventoryRequest;
 import com.example.inventory.dto.request.RestockRequest;
 import com.example.inventory.dto.response.InventoryResponse;
+import com.example.inventory.service.InventoryFilter;
 import com.example.inventory.service.InventoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +25,17 @@ import java.util.UUID;
 public class InventoryController {
 
     private final InventoryService inventoryService;
+
+    @GetMapping
+    @Operation(summary = "List inventory records with optional filters")
+    public ResponseEntity<Page<InventoryResponse>> findAll(
+            @RequestParam(required = false) Boolean available,
+            @RequestParam(required = false) Integer minQuantity,
+            @RequestParam(required = false) Integer maxQuantity,
+            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+        InventoryFilter filter = new InventoryFilter(available, minQuantity, maxQuantity);
+        return ResponseEntity.ok(inventoryService.findAll(filter, pageable));
+    }
 
     @GetMapping("/check")
     @Operation(summary = "Check product availability")

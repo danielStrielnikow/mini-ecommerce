@@ -65,7 +65,7 @@ class InventoryServiceImplTest {
     @Test
     void getByProductId_whenExists_shouldReturnResponse() {
         Inventory inventory = buildInventory(10);
-        InventoryResponse expected = new InventoryResponse(productId, 10, true);
+        InventoryResponse expected = new InventoryResponse(UUID.randomUUID(), productId, 10, true);
         given(inventoryRepository.findByProductId(productId)).willReturn(Optional.of(inventory));
         given(inventoryMapper.toResponse(inventory)).willReturn(expected);
 
@@ -90,7 +90,7 @@ class InventoryServiceImplTest {
     void create_shouldSaveAndReturnResponse() {
         CreateInventoryRequest request = new CreateInventoryRequest(productId, 100);
         Inventory saved = buildInventory(100);
-        InventoryResponse expected = new InventoryResponse(productId, 100, true);
+        InventoryResponse expected = new InventoryResponse(UUID.randomUUID(), productId, 100, true);
         given(inventoryRepository.existsByProductId(productId)).willReturn(false);
         given(inventoryRepository.save(any())).willReturn(saved);
         given(inventoryMapper.toResponse(saved)).willReturn(expected);
@@ -169,7 +169,7 @@ class InventoryServiceImplTest {
     @Test
     void restock_whenWasDepleted_shouldPublishStockRestoredAndReturnResponse() {
         Inventory inventory = buildInventory(0);
-        InventoryResponse expected = new InventoryResponse(productId, 50, true);
+        InventoryResponse expected = new InventoryResponse(UUID.randomUUID(), productId, 50, true);
         given(inventoryRepository.findByProductId(productId)).willReturn(Optional.of(inventory));
         given(inventoryRepository.save(inventory)).willReturn(inventory);
         given(inventoryMapper.toResponse(inventory)).willReturn(expected);
@@ -185,7 +185,7 @@ class InventoryServiceImplTest {
     @Test
     void restock_whenAlreadyHadStock_shouldNotPublishRestoredEvent() {
         Inventory inventory = buildInventory(10);
-        InventoryResponse expected = new InventoryResponse(productId, 60, true);
+        InventoryResponse expected = new InventoryResponse(UUID.randomUUID(), productId, 60, true);
         given(inventoryRepository.findByProductId(productId)).willReturn(Optional.of(inventory));
         given(inventoryRepository.save(inventory)).willReturn(inventory);
         given(inventoryMapper.toResponse(inventory)).willReturn(expected);

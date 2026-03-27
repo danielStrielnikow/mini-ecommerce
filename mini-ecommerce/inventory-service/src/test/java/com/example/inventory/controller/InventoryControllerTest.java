@@ -62,7 +62,7 @@ class InventoryControllerTest {
 
     @Test
     void getByProductId_whenExists_shouldReturn200() throws Exception {
-        InventoryResponse response = new InventoryResponse(productId, 10, true);
+        InventoryResponse response = new InventoryResponse(UUID.randomUUID(), productId, 10, true);
         given(inventoryService.getByProductId(productId)).willReturn(response);
 
         mockMvc.perform(get("/api/inventory/{productId}", productId))
@@ -85,7 +85,7 @@ class InventoryControllerTest {
     @Test
     void create_shouldReturn201() throws Exception {
         CreateInventoryRequest request = new CreateInventoryRequest(productId, 50);
-        InventoryResponse response = new InventoryResponse(productId, 50, true);
+        InventoryResponse response = new InventoryResponse(UUID.randomUUID(), productId, 50, true);
         given(inventoryService.create(any())).willReturn(response);
 
         mockMvc.perform(post("/api/inventory")
@@ -120,7 +120,7 @@ class InventoryControllerTest {
     @Test
     void restock_shouldReturn200WithUpdatedQuantity() throws Exception {
         RestockRequest request = new RestockRequest(30);
-        InventoryResponse response = new InventoryResponse(productId, 30, true);
+        InventoryResponse response = new InventoryResponse(UUID.randomUUID(), productId, 30, true);
         given(inventoryService.restockProduct(eq(productId), eq(30))).willReturn(response);
 
         mockMvc.perform(patch("/api/inventory/{productId}/restock", productId)

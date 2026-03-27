@@ -2,6 +2,7 @@ package com.example.order.service.impl;
 
 import com.example.events.OrderCreatedEvent;
 import com.example.order.client.InventoryClient;
+import com.example.order.exception.OrderNotFoundException;
 import com.example.order.config.KafkaConfig;
 import com.example.order.dto.request.CreateOrderRequest;
 import com.example.order.dto.response.OrderResponse;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -60,5 +62,14 @@ public class OrderServiceImpl implements OrderService {
         log.info("Order created and event published: orderId={}", saved.getId());
 
         return orderMapper.toResponse(saved);
+    }
+
+    @Override
+    public void cancelOrder(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        order.setStatus(OrderStatus.CANCELLED);
+        orderRepository.save(order);
+        log.info("Order cancelled: orderId={}", orderId);
     }
 }
