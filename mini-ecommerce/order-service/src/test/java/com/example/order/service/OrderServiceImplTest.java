@@ -38,7 +38,7 @@ class OrderServiceImplTest {
     @Mock
     private InventoryClient inventoryClient;
     @Mock
-    private KafkaTemplate<String, OrderCreatedEvent> kafkaTemplate;
+    private KafkaTemplate<String, Object> kafkaTemplate;
     @Mock
     private OrderMapper orderMapper;
 

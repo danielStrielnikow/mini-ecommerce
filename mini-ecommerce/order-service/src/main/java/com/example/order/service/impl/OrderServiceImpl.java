@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Service
@@ -33,9 +34,11 @@ import java.util.UUID;
 @Transactional
 public class OrderServiceImpl implements OrderService {
 
+    private static final int RESERVATION_MINUTES = 15;
+
     private final OrderRepository orderRepository;
     private final InventoryClient inventoryClient;
-    private final KafkaTemplate<String, OrderCreatedEvent> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final OrderMapper orderMapper;
 
     @Override
@@ -66,6 +69,7 @@ public class OrderServiceImpl implements OrderService {
                 .quantity(request.quantity())
                 .status(OrderStatus.CREATED)
                 .totalPrice(BigDecimal.ZERO)
+                .reservedUntil(Instant.now().plus(RESERVATION_MINUTES, ChronoUnit.MINUTES))
                 .build();
 
         Order saved = orderRepository.save(order);
@@ -79,7 +83,7 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         kafkaTemplate.send(KafkaConfig.ORDER_CREATED_TOPIC, event);
-        log.info("Order created and event published: orderId={}", saved.getId());
+        log.info("Order created with reservation until {}: orderId={}", saved.getReservedUntil(), saved.getId());
 
         return orderMapper.toResponse(saved);
     }
