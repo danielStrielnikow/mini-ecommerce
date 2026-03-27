@@ -7,8 +7,11 @@ import java.math.BigDecimal;
 public record UpdateProductRequest(
 
         @NotBlank(message = "Name is required")
+        @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
+        @Pattern(regexp = ".*\\p{L}.*", message = "Name must contain at least one letter")
         String name,
 
+        @Size(max = 500, message = "Description cannot exceed 500 characters")
         String description,
 
         @NotNull(message = "Price is required")
