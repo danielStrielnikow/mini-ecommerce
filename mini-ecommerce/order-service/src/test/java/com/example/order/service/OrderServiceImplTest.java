@@ -3,8 +3,10 @@ package com.example.order.service;
 import com.example.events.OrderCreatedEvent;
 import com.example.events.OrderExpiredEvent;
 import com.example.order.client.InventoryClient;
+import com.example.order.client.ProductClient;
 import com.example.order.dto.request.CreateOrderRequest;
 import com.example.order.dto.response.OrderResponse;
+import com.example.order.dto.response.ProductPriceResponse;
 import com.example.order.entity.Order;
 import com.example.order.entity.enums.OrderStatus;
 import com.example.order.exception.InsufficientStockException;
@@ -23,6 +25,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,20 +37,19 @@ import static org.mockito.BDDMockito.*;
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplTest {
 
-    @Mock
-    private OrderRepository orderRepository;
-    @Mock
-    private InventoryClient inventoryClient;
-    @Mock
-    private KafkaTemplate<String, Object> kafkaTemplate;
-    @Mock
-    private OrderMapper orderMapper;
+    @Mock private OrderRepository orderRepository;
+    @Mock private InventoryClient inventoryClient;
+    @Mock private ProductClient productClient;
+    @Mock private KafkaTemplate<String, Object> kafkaTemplate;
+    @Mock private OrderMapper orderMapper;
 
     @InjectMocks
     private OrderServiceImpl orderService;
 
     private final UUID orderId   = UUID.randomUUID();
     private final UUID productId = UUID.randomUUID();
+
+    private static final BigDecimal UNIT_PRICE = new BigDecimal("99.99");
 
     // ── helpers ─────────────────────────────────────────────────────────────
 
@@ -57,13 +59,20 @@ class OrderServiceImplTest {
         o.setProductId(productId);
         o.setQuantity(2);
         o.setStatus(status);
-        o.setTotalPrice(BigDecimal.ZERO);
+        o.setTotalPrice(UNIT_PRICE.multiply(BigDecimal.valueOf(2)));
         o.setCreatedAt(Instant.now());
+        o.setReservedUntil(Instant.now().plus(15, ChronoUnit.MINUTES));
         return o;
     }
 
     private OrderResponse responseWithStatus(OrderStatus status) {
-        return new OrderResponse(orderId, productId, 2, status, BigDecimal.ZERO, Instant.now());
+        return new OrderResponse(orderId, productId, 2, status,
+                UNIT_PRICE.multiply(BigDecimal.valueOf(2)), Instant.now(),
+                Instant.now().plus(15, ChronoUnit.MINUTES));
+    }
+
+    private ProductPriceResponse activeProduct() {
+        return new ProductPriceResponse(productId, "Laptop", UNIT_PRICE, "ACTIVE");
     }
 
     // ── createOrder ──────────────────────────────────────────────────────────
@@ -74,6 +83,7 @@ class OrderServiceImplTest {
         Order saved = orderWithStatus(OrderStatus.CREATED);
         OrderResponse expected = responseWithStatus(OrderStatus.CREATED);
 
+        given(productClient.getProduct(productId)).willReturn(activeProduct());
         given(inventoryClient.checkAvailability(productId, 2)).willReturn(true);
         given(orderRepository.save(any(Order.class))).willReturn(saved);
         given(orderMapper.toResponse(saved)).willReturn(expected);
@@ -82,6 +92,7 @@ class OrderServiceImplTest {
 
         assertThat(result.status()).isEqualTo(OrderStatus.CREATED);
         assertThat(result.productId()).isEqualTo(productId);
+        assertThat(result.totalPrice()).isEqualByComparingTo("199.98");
 
         ArgumentCaptor<OrderCreatedEvent> captor = ArgumentCaptor.forClass(OrderCreatedEvent.class);
         then(kafkaTemplate).should().send(eq("order-created"), captor.capture());
@@ -92,6 +103,7 @@ class OrderServiceImplTest {
     @Test
     void createOrder_whenStockUnavailable_shouldThrowInsufficientStockException() {
         CreateOrderRequest request = new CreateOrderRequest(productId, 99);
+        given(productClient.getProduct(productId)).willReturn(activeProduct());
         given(inventoryClient.checkAvailability(productId, 99)).willReturn(false);
 
         assertThatThrownBy(() -> orderService.createOrder(request))
@@ -100,6 +112,20 @@ class OrderServiceImplTest {
 
         then(orderRepository).shouldHaveNoInteractions();
         then(kafkaTemplate).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void createOrder_whenProductInactive_shouldThrowInsufficientStockException() {
+        CreateOrderRequest request = new CreateOrderRequest(productId, 2);
+        ProductPriceResponse inactiveProduct =
+                new ProductPriceResponse(productId, "Laptop", UNIT_PRICE, "INACTIVE");
+        given(productClient.getProduct(productId)).willReturn(inactiveProduct);
+
+        assertThatThrownBy(() -> orderService.createOrder(request))
+                .isInstanceOf(InsufficientStockException.class);
+
+        then(inventoryClient).shouldHaveNoInteractions();
+        then(orderRepository).shouldHaveNoInteractions();
     }
 
     // ── getById ──────────────────────────────────────────────────────────────

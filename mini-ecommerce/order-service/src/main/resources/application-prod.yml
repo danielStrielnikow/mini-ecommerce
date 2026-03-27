@@ -14,3 +14,5 @@ spring:
 app:
   inventory:
     base-url: ${INVENTORY_SERVICE_URL}
+  product:
+    base-url: ${PRODUCT_SERVICE_URL}

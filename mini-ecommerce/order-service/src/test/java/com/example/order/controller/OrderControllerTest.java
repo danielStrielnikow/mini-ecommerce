@@ -46,7 +46,8 @@ class OrderControllerTest {
     private final UUID productId = UUID.randomUUID();
 
     private OrderResponse sampleResponse(OrderStatus status) {
-        return new OrderResponse(orderId, productId, 2, status, BigDecimal.ZERO, Instant.now());
+        return new OrderResponse(orderId, productId, 2, status, new BigDecimal("199.98"),
+                Instant.now(), Instant.now().plusSeconds(900));
     }
 
     // ── POST /api/orders ─────────────────────────────────────────────────────
