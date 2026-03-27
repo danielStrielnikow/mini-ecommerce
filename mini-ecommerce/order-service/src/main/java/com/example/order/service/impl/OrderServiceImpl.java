@@ -3,9 +3,11 @@ package com.example.order.service.impl;
 import com.example.events.OrderCreatedEvent;
 import com.example.events.OrderExpiredEvent;
 import com.example.order.client.InventoryClient;
+import com.example.order.client.ProductClient;
 import com.example.order.config.KafkaConfig;
 import com.example.order.dto.request.CreateOrderRequest;
 import com.example.order.dto.response.OrderResponse;
+import com.example.order.dto.response.ProductPriceResponse;
 import com.example.order.entity.Order;
 import com.example.order.entity.enums.OrderStatus;
 import com.example.order.exception.InsufficientStockException;
@@ -39,6 +41,7 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final InventoryClient inventoryClient;
+    private final ProductClient productClient;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final OrderMapper orderMapper;
 
@@ -59,17 +62,24 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderResponse createOrder(CreateOrderRequest request) {
-        boolean available = inventoryClient.checkAvailability(request.productId(), request.quantity());
+        ProductPriceResponse product = productClient.getProduct(request.productId());
 
+        if (!"ACTIVE".equals(product.status())) {
+            throw new InsufficientStockException(request.productId(), request.quantity());
+        }
+
+        boolean available = inventoryClient.checkAvailability(request.productId(), request.quantity());
         if (!available) {
             throw new InsufficientStockException(request.productId(), request.quantity());
         }
+
+        BigDecimal totalPrice = product.price().multiply(BigDecimal.valueOf(request.quantity()));
 
         Order order = Order.builder()
                 .productId(request.productId())
                 .quantity(request.quantity())
                 .status(OrderStatus.CREATED)
-                .totalPrice(BigDecimal.ZERO)
+                .totalPrice(totalPrice)
                 .reservedUntil(Instant.now().plus(RESERVATION_MINUTES, ChronoUnit.MINUTES))
                 .build();
 
