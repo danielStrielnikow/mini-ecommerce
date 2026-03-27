@@ -9,4 +9,8 @@ import java.util.UUID;
 public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
 
     Optional<Inventory> findByProductId(UUID productId);
+
+    boolean existsByProductId(UUID productId);
+
+    void deleteByProductId(UUID productId);
 }

@@ -1,5 +1,6 @@
 package com.example.product.service.impl;
 
+import com.example.events.ProductCreatedEvent;
 import com.example.events.ProductDeletedEvent;
 import com.example.product.config.KafkaConfig;
 import com.example.product.dto.request.CreateProductRequest;
@@ -16,7 +17,6 @@ import com.example.product.service.ProductSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -33,7 +33,7 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
-    private final KafkaTemplate<String, ProductDeletedEvent> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
     public Page<ProductResponse> findAll(ProductFilter filter, Pageable pageable) {
@@ -55,7 +55,13 @@ public class ProductServiceImpl implements ProductService {
     @CacheEvict(value = "product", allEntries = true)
     public ProductResponse create(CreateProductRequest request) {
         Product product = productMapper.toEntity(request);
-        return productMapper.toResponse(productRepository.save(product));
+        Product saved = productRepository.save(product);
+        kafkaTemplate.send(KafkaConfig.PRODUCT_CREATED_TOPIC,
+                ProductCreatedEvent.builder()
+                        .productId(saved.getId())
+                        .occurredAt(Instant.now())
+                        .build());
+        return productMapper.toResponse(saved);
     }
 
     @Override
