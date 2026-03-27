@@ -7,7 +7,9 @@ import com.example.product.entity.Product;
 import com.example.product.exception.ProductNotFoundException;
 import com.example.product.mapper.ProductMapper;
 import com.example.product.repository.ProductRepository;
+import com.example.product.service.ProductFilter;
 import com.example.product.service.ProductService;
+import com.example.product.service.ProductSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -17,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -28,8 +31,10 @@ public class ProductServiceImpl implements ProductService {
     private final ProductMapper productMapper;
 
     @Override
-    public Page<ProductResponse> findAll(Pageable pageable) {
-        return productRepository.findAll(pageable).map(productMapper::toResponse);
+    public Page<ProductResponse> findAll(ProductFilter filter, Pageable pageable) {
+        return productRepository
+                .findAll(ProductSpecification.withFilter(filter), pageable)
+                .map(productMapper::toResponse);
     }
 
     @Override
@@ -64,6 +69,16 @@ public class ProductServiceImpl implements ProductService {
     @Transactional
     @CacheEvict(value = "product", key = "#id")
     public void delete(UUID id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+        product.setDeletedAt(Instant.now());
+        productRepository.save(product);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = "product", key = "#id")
+    public void hardDelete(UUID id) {
         if (!productRepository.existsById(id)) {
             throw new ProductNotFoundException(id);
         }

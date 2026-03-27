@@ -1,0 +1,3 @@
+ALTER TABLE products
+    ADD COLUMN status     VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE',
+    ADD COLUMN deleted_at TIMESTAMPTZ;
