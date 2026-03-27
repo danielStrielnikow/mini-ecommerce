@@ -12,9 +12,15 @@
 
     <artifactId>shared-events</artifactId>
     <name>shared-events</name>
-    <description>Shared Kafka event DTOs</description>
+    <description>Shared Kafka event DTOs and common JPA base entity</description>
 
     <dependencies>
+        <dependency>
+            <groupId>jakarta.persistence</groupId>
+            <artifactId>jakarta.persistence-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
