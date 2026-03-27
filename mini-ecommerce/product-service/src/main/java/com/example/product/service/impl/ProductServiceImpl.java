@@ -17,7 +17,6 @@ import com.example.product.service.ProductSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -37,9 +36,6 @@ public class ProductServiceImpl implements ProductService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
-    @Cacheable(value = "products-all",
-               key = "#pageable.pageNumber + '-' + #pageable.pageSize",
-               condition = "#filter.name == null && #filter.minPrice == null && #filter.maxPrice == null && #filter.status == null")
     public Page<ProductResponse> findAll(ProductFilter filter, Pageable pageable) {
         return productRepository
                 .findAll(ProductSpecification.withFilter(filter), pageable)
@@ -56,10 +52,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "product", allEntries = true),
-            @CacheEvict(value = "products-all", allEntries = true)
-    })
+    @CacheEvict(value = "product", allEntries = true)
     public ProductResponse create(CreateProductRequest request) {
         Product product = productMapper.toEntity(request);
         Product saved = productRepository.save(product);
@@ -73,10 +66,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "product", key = "#id"),
-            @CacheEvict(value = "products-all", allEntries = true)
-    })
+    @CacheEvict(value = "product", key = "#id")
     public ProductResponse update(UUID id, UpdateProductRequest request) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
@@ -86,10 +76,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "product", key = "#id"),
-            @CacheEvict(value = "products-all", allEntries = true)
-    })
+    @CacheEvict(value = "product", key = "#id")
     public void delete(UUID id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
@@ -99,10 +86,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "product", key = "#id"),
-            @CacheEvict(value = "products-all", allEntries = true)
-    })
+    @CacheEvict(value = "product", key = "#id")
     public void hardDelete(UUID id) {
         if (!productRepository.existsById(id)) {
             throw new ProductNotFoundException(id);
@@ -117,10 +101,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "product", key = "#id"),
-            @CacheEvict(value = "products-all", allEntries = true)
-    })
+    @CacheEvict(value = "product", key = "#id")
     public ProductResponse deactivate(UUID id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
@@ -130,10 +111,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "product", key = "#id"),
-            @CacheEvict(value = "products-all", allEntries = true)
-    })
+    @CacheEvict(value = "product", key = "#id")
     public ProductResponse activate(UUID id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
