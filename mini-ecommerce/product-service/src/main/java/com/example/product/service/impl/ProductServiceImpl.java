@@ -1,8 +1,8 @@
 package com.example.product.service.impl;
 
 import com.example.product.dto.response.ProductResponse;
-import com.example.product.entity.Product;
 import com.example.product.exception.ProductNotFoundException;
+import com.example.product.mapper.ProductMapper;
 import com.example.product.repository.ProductRepository;
 import com.example.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -19,13 +19,14 @@ import java.util.UUID;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
+    private final ProductMapper productMapper;
 
     @Override
     @Cacheable(value = "products")
     public List<ProductResponse> findAll() {
         return productRepository.findAll()
                 .stream()
-                .map(this::toResponse)
+                .map(productMapper::toResponse)
                 .toList();
     }
 
@@ -33,17 +34,7 @@ public class ProductServiceImpl implements ProductService {
     @Cacheable(value = "product", key = "#id")
     public ProductResponse findById(UUID id) {
         return productRepository.findById(id)
-                .map(this::toResponse)
+                .map(productMapper::toResponse)
                 .orElseThrow(() -> new ProductNotFoundException(id));
-    }
-
-    private ProductResponse toResponse(Product product) {
-        return new ProductResponse(
-                product.getId(),
-                product.getName(),
-                product.getDescription(),
-                product.getPrice(),
-                product.getCreatedAt()
-        );
     }
 }
