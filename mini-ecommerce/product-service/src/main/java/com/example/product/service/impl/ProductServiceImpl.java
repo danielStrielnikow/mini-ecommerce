@@ -66,7 +66,7 @@ public class ProductServiceImpl implements ProductService {
                             .productId(saved.getId())
                             .occurredAt(Instant.now())
                             .build());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("{}", new EventPublishException(KafkaConfig.PRODUCT_CREATED_TOPIC, e).getMessage());
         }
         return productMapper.toResponse(saved);
@@ -106,7 +106,7 @@ public class ProductServiceImpl implements ProductService {
                             .productId(id)
                             .deletedAt(Instant.now())
                             .build());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             throw new EventPublishException(KafkaConfig.PRODUCT_DELETED_TOPIC, e);
         }
     }

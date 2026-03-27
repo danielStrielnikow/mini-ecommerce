@@ -11,6 +11,7 @@ import com.example.order.dto.response.OrderSummaryResponse;
 import com.example.order.dto.response.ProductPriceResponse;
 import com.example.order.entity.Order;
 import com.example.order.entity.enums.OrderStatus;
+import com.example.order.exception.EventPublishException;
 import com.example.order.exception.InsufficientStockException;
 import com.example.order.exception.OrderNotFoundException;
 import com.example.order.exception.OrderStatusTransitionException;
@@ -94,7 +95,12 @@ public class OrderServiceImpl implements OrderService {
                 .createdAt(Instant.now())
                 .build();
 
-        kafkaTemplate.send(KafkaConfig.ORDER_CREATED_TOPIC, event);
+        try {
+            kafkaTemplate.send(KafkaConfig.ORDER_CREATED_TOPIC, event);
+        } catch (RuntimeException e) {
+            // Roll back: without this event inventory-service will never decrement stock
+            throw new EventPublishException(KafkaConfig.ORDER_CREATED_TOPIC, e);
+        }
         log.info("Order created with reservation until {}: orderId={}", saved.getReservedUntil(), saved.getId());
 
         return orderMapper.toResponse(saved);
@@ -119,7 +125,12 @@ public class OrderServiceImpl implements OrderService {
                 .quantity(saved.getQuantity())
                 .occurredAt(Instant.now())
                 .build();
-        kafkaTemplate.send(KafkaConfig.ORDER_EXPIRED_TOPIC, event);
+        try {
+            kafkaTemplate.send(KafkaConfig.ORDER_EXPIRED_TOPIC, event);
+        } catch (RuntimeException e) {
+            // fire-and-forget: order is already CANCELLED — stock restore is best-effort
+            log.warn("Failed to publish OrderExpiredEvent for orderId={}: {}", orderId, e.getMessage());
+        }
         log.info("Order cancelled and stock restore event published: orderId={}", orderId);
 
         return orderMapper.toResponse(saved);

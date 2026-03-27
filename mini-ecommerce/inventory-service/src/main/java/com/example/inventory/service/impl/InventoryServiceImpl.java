@@ -88,12 +88,17 @@ public class InventoryServiceImpl implements InventoryService {
         log.info("Stock decreased: productId={}, remaining={}", productId, inventory.getQuantity());
 
         if (inventory.getQuantity() == 0) {
-            kafkaTemplate.send(KafkaConfig.STOCK_DEPLETED_TOPIC,
-                    StockDepletedEvent.builder()
-                            .productId(productId)
-                            .occurredAt(Instant.now())
-                            .build());
-            log.info("Stock depleted event published: productId={}", productId);
+            try {
+                kafkaTemplate.send(KafkaConfig.STOCK_DEPLETED_TOPIC,
+                        StockDepletedEvent.builder()
+                                .productId(productId)
+                                .occurredAt(Instant.now())
+                                .build());
+                log.info("Stock depleted event published: productId={}", productId);
+            } catch (RuntimeException e) {
+                // fire-and-forget: stock is already decremented — product deactivation is best-effort
+                log.warn("Failed to publish StockDepletedEvent for productId={}: {}", productId, e.getMessage());
+            }
         }
     }
 
@@ -110,13 +115,18 @@ public class InventoryServiceImpl implements InventoryService {
         log.info("Stock restocked: productId={}, new quantity={}", productId, saved.getQuantity());
 
         if (wasDepleted) {
-            kafkaTemplate.send(KafkaConfig.STOCK_RESTORED_TOPIC,
-                    StockRestoredEvent.builder()
-                            .productId(productId)
-                            .newQuantity(saved.getQuantity())
-                            .occurredAt(Instant.now())
-                            .build());
-            log.info("Stock restored event published: productId={}", productId);
+            try {
+                kafkaTemplate.send(KafkaConfig.STOCK_RESTORED_TOPIC,
+                        StockRestoredEvent.builder()
+                                .productId(productId)
+                                .newQuantity(saved.getQuantity())
+                                .occurredAt(Instant.now())
+                                .build());
+                log.info("Stock restored event published: productId={}", productId);
+            } catch (RuntimeException e) {
+                // fire-and-forget: stock is already restocked — product reactivation is best-effort
+                log.warn("Failed to publish StockRestoredEvent for productId={}: {}", productId, e.getMessage());
+            }
         }
 
         return inventoryMapper.toResponse(saved);

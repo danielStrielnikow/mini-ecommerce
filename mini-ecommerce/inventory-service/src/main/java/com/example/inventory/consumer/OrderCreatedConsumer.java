@@ -14,6 +14,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -23,6 +24,23 @@ public class OrderCreatedConsumer {
     private final InventoryService inventoryService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
+    private void sendCancellation(UUID orderId, UUID productId, String reason) {
+        try {
+            kafkaTemplate.send(KafkaConfig.ORDER_CANCELLED_TOPIC,
+                    OrderCancelledEvent.builder()
+                            .orderId(orderId)
+                            .productId(productId)
+                            .reason(reason)
+                            .occurredAt(Instant.now())
+                            .build());
+            log.info("Order cancellation event published: orderId={}, reason={}", orderId, reason);
+        } catch (RuntimeException e) {
+            // fire-and-forget: if this fails, order remains CREATED in order-service
+            // but won't be confirmed — will eventually be expired by ReservationExpiryScheduler
+            log.error("Failed to publish OrderCancelledEvent for orderId={}: {}", orderId, e.getMessage());
+        }
+    }
+
     @KafkaListener(topics = "order-created", groupId = "inventory-service")
     public void consume(OrderCreatedEvent event) {
         log.info("Received OrderCreatedEvent: orderId={}, productId={}, quantity={}",
@@ -31,26 +49,18 @@ public class OrderCreatedConsumer {
             inventoryService.decreaseStock(event.getProductId(), event.getQuantity());
         } catch (InsufficientStockException e) {
             log.warn("Insufficient stock for orderId={}: {}", event.getOrderId(), e.getMessage());
-            kafkaTemplate.send(KafkaConfig.ORDER_CANCELLED_TOPIC,
-                    OrderCancelledEvent.builder()
-                            .orderId(event.getOrderId())
-                            .productId(event.getProductId())
-                            .reason("Insufficient stock")
-                            .occurredAt(Instant.now())
-                            .build());
+            sendCancellation(event.getOrderId(), event.getProductId(), "Insufficient stock");
         } catch (InventoryNotFoundException e) {
             log.warn("Inventory not found for orderId={}, productId={} — skipping",
                     event.getOrderId(), event.getProductId());
         } catch (ObjectOptimisticLockingFailureException e) {
             log.warn("Concurrent modification detected for orderId={}, productId={} — cancelling order",
                     event.getOrderId(), event.getProductId());
-            kafkaTemplate.send(KafkaConfig.ORDER_CANCELLED_TOPIC,
-                    OrderCancelledEvent.builder()
-                            .orderId(event.getOrderId())
-                            .productId(event.getProductId())
-                            .reason("Concurrent modification — stock no longer available")
-                            .occurredAt(Instant.now())
-                            .build());
+            sendCancellation(event.getOrderId(), event.getProductId(),
+                    "Concurrent modification — stock no longer available");
+        } catch (Exception e) {
+            log.error("Unexpected error processing OrderCreatedEvent for orderId={}: {}",
+                    event.getOrderId(), e.getMessage(), e);
         }
     }
 }
