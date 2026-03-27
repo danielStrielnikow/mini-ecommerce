@@ -102,6 +102,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       INVENTORY_SERVICE_URL: http://inventory-service:8083
+      PRODUCT_SERVICE_URL: http://product-service:8081
     depends_on:
       postgres:
         condition: service_healthy

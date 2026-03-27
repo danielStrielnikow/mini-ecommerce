@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public interface ProductService {
 
-    Page<ProductResponse> findAll(Pageable pageable);
+    Page<ProductResponse> findAll(ProductFilter filter, Pageable pageable);
 
     ProductResponse findById(UUID id);
 
@@ -19,4 +19,10 @@ public interface ProductService {
     ProductResponse update(UUID id, UpdateProductRequest request);
 
     void delete(UUID id);
+
+    void hardDelete(UUID id);
+
+    ProductResponse deactivate(UUID id);
+
+    ProductResponse activate(UUID id);
 }

@@ -13,6 +13,33 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.type.mapping: >
+          order-created:com.example.events.OrderCreatedEvent,
+          order-cancelled:com.example.events.OrderCancelledEvent,
+          order-expired:com.example.events.OrderExpiredEvent,
+          product-created:com.example.events.ProductCreatedEvent,
+          product-deleted:com.example.events.ProductDeletedEvent,
+          stock-depleted:com.example.events.StockDepletedEvent,
+          stock-restored:com.example.events.StockRestoredEvent
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.example.events"
+        spring.json.type.mapping: >
+          order-created:com.example.events.OrderCreatedEvent,
+          order-cancelled:com.example.events.OrderCancelledEvent,
+          order-expired:com.example.events.OrderExpiredEvent,
+          product-created:com.example.events.ProductCreatedEvent,
+          product-deleted:com.example.events.ProductDeletedEvent,
+          stock-depleted:com.example.events.StockDepletedEvent,
+          stock-restored:com.example.events.StockRestoredEvent
+
   flyway:
     enabled: true
     locations: classpath:db/migration/product
@@ -22,3 +49,9 @@ springdoc:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

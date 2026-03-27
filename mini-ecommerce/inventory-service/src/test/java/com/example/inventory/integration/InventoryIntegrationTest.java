@@ -1,6 +1,9 @@
 package com.example.inventory.integration;
 
 import com.example.events.OrderCreatedEvent;
+import com.example.inventory.dto.request.CreateInventoryRequest;
+import com.example.inventory.dto.request.RestockRequest;
+import com.example.inventory.dto.response.InventoryResponse;
 import com.example.inventory.entity.Inventory;
 import com.example.inventory.repository.InventoryRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,14 +56,9 @@ class InventoryIntegrationTest {
         registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
     }
 
-    @Autowired
-    private TestRestTemplate restTemplate;
-
-    @Autowired
-    private InventoryRepository inventoryRepository;
-
-    @Autowired
-    private KafkaTemplate<String, OrderCreatedEvent> kafkaTemplate;
+    @Autowired private TestRestTemplate restTemplate;
+    @Autowired private InventoryRepository inventoryRepository;
+    @Autowired private KafkaTemplate<String, Object> kafkaTemplate;
 
     private UUID productId;
 
@@ -75,6 +73,8 @@ class InventoryIntegrationTest {
         inventory.setVersion(0L);
         inventoryRepository.save(inventory);
     }
+
+    // ── check ────────────────────────────────────────────────────────────────
 
     @Test
     void check_whenAvailable_shouldReturnTrue() {
@@ -94,6 +94,91 @@ class InventoryIntegrationTest {
         assertThat(response.getBody()).isFalse();
     }
 
+    // ── getByProductId ───────────────────────────────────────────────────────
+
+    @Test
+    void getByProductId_whenExists_shouldReturn200() {
+        ResponseEntity<InventoryResponse> response = restTemplate.getForEntity(
+                "/api/inventory/{productId}", InventoryResponse.class, productId);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().productId()).isEqualTo(productId);
+        assertThat(response.getBody().quantity()).isEqualTo(10);
+        assertThat(response.getBody().available()).isTrue();
+    }
+
+    @Test
+    void getByProductId_whenNotFound_shouldReturn404() {
+        ResponseEntity<Void> response = restTemplate.getForEntity(
+                "/api/inventory/{productId}", Void.class, UUID.randomUUID());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    // ── create ───────────────────────────────────────────────────────────────
+
+    @Test
+    void create_shouldReturn201AndPersist() {
+        UUID newProductId = UUID.randomUUID();
+        CreateInventoryRequest request = new CreateInventoryRequest(newProductId, 50);
+
+        ResponseEntity<InventoryResponse> response = restTemplate.postForEntity(
+                "/api/inventory", request, InventoryResponse.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().productId()).isEqualTo(newProductId);
+        assertThat(response.getBody().quantity()).isEqualTo(50);
+        assertThat(inventoryRepository.existsByProductId(newProductId)).isTrue();
+    }
+
+    @Test
+    void create_whenDuplicate_shouldReturn409() {
+        CreateInventoryRequest request = new CreateInventoryRequest(productId, 10);
+
+        ResponseEntity<Void> response = restTemplate.postForEntity(
+                "/api/inventory", request, Void.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    // ── restock ──────────────────────────────────────────────────────────────
+
+    @Test
+    void restock_shouldIncreaseQuantityAndReturn200() {
+        RestockRequest request = new RestockRequest(20);
+
+        restTemplate.patchForObject("/api/inventory/{productId}/restock", request,
+                InventoryResponse.class, productId);
+
+        Inventory updated = inventoryRepository.findByProductId(productId).orElseThrow();
+        assertThat(updated.getQuantity()).isEqualTo(30);
+    }
+
+    // ── delete ───────────────────────────────────────────────────────────────
+
+    @Test
+    void delete_shouldRemoveRecordAndReturn204() {
+        restTemplate.delete("/api/inventory/{productId}", productId);
+
+        assertThat(inventoryRepository.existsByProductId(productId)).isFalse();
+    }
+
+    @Test
+    void delete_whenNotFound_shouldReturn404() {
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/api/inventory/{productId}",
+                org.springframework.http.HttpMethod.DELETE,
+                null,
+                Void.class,
+                UUID.randomUUID());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    // ── Kafka: OrderCreatedEvent ──────────────────────────────────────────────
+
     @Test
     void whenOrderCreatedEventConsumed_shouldDecreaseStock() {
         OrderCreatedEvent event = OrderCreatedEvent.builder()
@@ -109,6 +194,24 @@ class InventoryIntegrationTest {
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
             Inventory updated = inventoryRepository.findByProductId(productId).orElseThrow();
             assertThat(updated.getQuantity()).isEqualTo(7);
+        });
+    }
+
+    @Test
+    void whenOrderCreatedEventWithInsufficientStock_stockShouldNotChange() {
+        OrderCreatedEvent event = OrderCreatedEvent.builder()
+                .orderId(UUID.randomUUID())
+                .productId(productId)
+                .quantity(99)
+                .totalPrice(BigDecimal.TEN)
+                .createdAt(Instant.now())
+                .build();
+
+        kafkaTemplate.send("order-created", event);
+
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
+            Inventory unchanged = inventoryRepository.findByProductId(productId).orElseThrow();
+            assertThat(unchanged.getQuantity()).isEqualTo(10);
         });
     }
 }
