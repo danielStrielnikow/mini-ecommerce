@@ -2,7 +2,9 @@ package com.example.common;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -14,6 +16,8 @@ import java.util.UUID;
 @MappedSuperclass
 @Getter
 @Setter
+@SuperBuilder
+@NoArgsConstructor
 public abstract class BaseEntity {
 
     @Id
