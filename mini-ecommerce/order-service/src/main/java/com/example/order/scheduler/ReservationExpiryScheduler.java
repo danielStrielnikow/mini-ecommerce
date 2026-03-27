@@ -46,7 +46,12 @@ public class ReservationExpiryScheduler {
                     .occurredAt(Instant.now())
                     .build();
 
-            kafkaTemplate.send(KafkaConfig.ORDER_EXPIRED_TOPIC, event);
+            try {
+                kafkaTemplate.send(KafkaConfig.ORDER_EXPIRED_TOPIC, event);
+            } catch (RuntimeException e) {
+                // fire-and-forget: order is already CANCELLED — continue with next order
+                log.warn("Failed to publish OrderExpiredEvent for orderId={}: {}", order.getId(), e.getMessage());
+            }
             log.info("Reservation expired — order cancelled and event published: orderId={}", order.getId());
         }
     }

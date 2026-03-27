@@ -3,6 +3,7 @@ package com.example.product.controller;
 import com.example.product.dto.request.CreateProductRequest;
 import com.example.product.dto.request.UpdateProductRequest;
 import com.example.product.dto.response.ProductResponse;
+import com.example.product.dto.response.ProductSummaryResponse;
 import com.example.product.entity.ProductStatus;
 import com.example.product.service.ProductFilter;
 import com.example.product.service.ProductService;
@@ -34,7 +35,7 @@ public class ProductController {
     @Operation(summary = "List products with optional filters",
                description = "Supports filtering by name (contains), price range and status. Paginated.")
     @ApiResponse(responseCode = "200", description = "Products returned successfully")
-    public ResponseEntity<Page<ProductResponse>> getAll(
+    public ResponseEntity<Page<ProductSummaryResponse>> getAll(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,

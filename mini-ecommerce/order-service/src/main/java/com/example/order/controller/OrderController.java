@@ -2,6 +2,7 @@ package com.example.order.controller;
 
 import com.example.order.dto.request.CreateOrderRequest;
 import com.example.order.dto.response.OrderResponse;
+import com.example.order.dto.response.OrderSummaryResponse;
 import com.example.order.entity.enums.OrderStatus;
 import com.example.order.service.OrderFilter;
 import com.example.order.service.OrderService;
@@ -31,7 +32,7 @@ public class OrderController {
     @GetMapping
     @Operation(summary = "List orders with optional filters")
     @ApiResponse(responseCode = "200", description = "Orders returned successfully")
-    public ResponseEntity<Page<OrderResponse>> findAll(
+    public ResponseEntity<Page<OrderSummaryResponse>> findAll(
             @RequestParam(required = false) OrderStatus status,
             @RequestParam(required = false) UUID productId,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {

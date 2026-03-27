@@ -9,14 +9,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.kafka.core.KafkaAdmin;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -58,9 +55,10 @@ class ProductIntegrationTest {
         registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379).toString());
         // Use simple in-memory cache — RedisCacheManager fails to serialize Java records
         registry.add("spring.cache.type", () -> "simple");
-        // Kafka not needed — KafkaTemplate is mocked, listeners disabled
+        // Kafka not needed — fire-and-forget, producer will fail fast and log a warning
         registry.add("spring.kafka.bootstrap-servers", () -> "localhost:9999");
         registry.add("spring.kafka.producer.retries", () -> "0");
+        registry.add("spring.kafka.producer.properties.max.block.ms", () -> "100");
         registry.add("spring.kafka.admin.fail-fast", () -> "false");
         registry.add("spring.kafka.admin.operation-timeout", () -> "2");
         registry.add("spring.kafka.listener.auto-startup", () -> "false");
@@ -68,8 +66,6 @@ class ProductIntegrationTest {
 
     @Autowired private TestRestTemplate restTemplate;
     @Autowired private ProductRepository productRepository;
-    @MockBean private KafkaTemplate<String, Object> kafkaTemplate;
-    @MockBean private KafkaAdmin kafkaAdmin;
 
     @BeforeEach
     void setUp() {

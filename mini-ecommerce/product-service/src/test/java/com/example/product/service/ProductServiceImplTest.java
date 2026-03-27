@@ -4,6 +4,7 @@ import com.example.events.ProductDeletedEvent;
 import com.example.product.dto.request.CreateProductRequest;
 import com.example.product.dto.request.UpdateProductRequest;
 import com.example.product.dto.response.ProductResponse;
+import com.example.product.dto.response.ProductSummaryResponse;
 import com.example.product.entity.Product;
 import com.example.product.entity.ProductStatus;
 import com.example.product.exception.ProductNotFoundException;
@@ -44,6 +45,7 @@ class ProductServiceImplTest {
 
     private Product product;
     private ProductResponse productResponse;
+    private ProductSummaryResponse productSummaryResponse;
     private UUID productId;
 
     @BeforeEach
@@ -59,6 +61,8 @@ class ProductServiceImplTest {
 
         productResponse = new ProductResponse(productId, "Laptop Pro", "High-end laptop",
                 new BigDecimal("4999.99"), ProductStatus.ACTIVE, Instant.now());
+        productSummaryResponse = new ProductSummaryResponse(productId, "Laptop Pro",
+                new BigDecimal("4999.99"), ProductStatus.ACTIVE);
     }
 
     // ── findAll ──────────────────────────────────────────────────────────────
@@ -67,9 +71,9 @@ class ProductServiceImplTest {
     void findAll_shouldReturnPageOfProductResponses() {
         given(productRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .willReturn(new PageImpl<>(List.of(product)));
-        given(productMapper.toResponse(product)).willReturn(productResponse);
+        given(productMapper.toSummary(product)).willReturn(productSummaryResponse);
 
-        Page<ProductResponse> result = productService.findAll(new ProductFilter(null, null, null, null), Pageable.unpaged());
+        Page<ProductSummaryResponse> result = productService.findAll(new ProductFilter(null, null, null, null), Pageable.unpaged());
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).name()).isEqualTo("Laptop Pro");
@@ -80,7 +84,7 @@ class ProductServiceImplTest {
         given(productRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .willReturn(Page.empty());
 
-        Page<ProductResponse> result = productService.findAll(new ProductFilter(null, null, null, null), Pageable.unpaged());
+        Page<ProductSummaryResponse> result = productService.findAll(new ProductFilter(null, null, null, null), Pageable.unpaged());
 
         assertThat(result.getContent()).isEmpty();
     }
@@ -90,9 +94,9 @@ class ProductServiceImplTest {
         ProductFilter filter = new ProductFilter("laptop", new BigDecimal("100"), new BigDecimal("9999"), ProductStatus.ACTIVE);
         given(productRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .willReturn(new PageImpl<>(List.of(product)));
-        given(productMapper.toResponse(product)).willReturn(productResponse);
+        given(productMapper.toSummary(product)).willReturn(productSummaryResponse);
 
-        Page<ProductResponse> result = productService.findAll(filter, Pageable.unpaged());
+        Page<ProductSummaryResponse> result = productService.findAll(filter, Pageable.unpaged());
 
         assertThat(result.getContent()).hasSize(1);
         then(productRepository).should().findAll(any(Specification.class), any(Pageable.class));

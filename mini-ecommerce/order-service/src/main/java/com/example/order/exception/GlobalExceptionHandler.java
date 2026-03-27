@@ -39,6 +39,11 @@ public class GlobalExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
     }
 
+    @ExceptionHandler(EventPublishException.class)
+    ProblemDetail handleEventPublish(EventPublishException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+    }
+
     @ExceptionHandler(CallNotPermittedException.class)
     ProblemDetail handleCircuitBreaker(CallNotPermittedException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
