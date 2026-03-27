@@ -7,6 +7,8 @@ import com.example.order.dto.response.OrderResponse;
 import com.example.order.entity.Order;
 import com.example.order.entity.enums.OrderStatus;
 import com.example.order.exception.InsufficientStockException;
+import com.example.order.exception.OrderNotFoundException;
+import com.example.order.exception.OrderStatusTransitionException;
 import com.example.order.mapper.OrderMapper;
 import com.example.order.repository.OrderRepository;
 import com.example.order.service.impl.OrderServiceImpl;
@@ -20,6 +22,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
@@ -42,37 +45,47 @@ class OrderServiceImplTest {
     @InjectMocks
     private OrderServiceImpl orderService;
 
+    private final UUID orderId   = UUID.randomUUID();
     private final UUID productId = UUID.randomUUID();
+
+    // ── helpers ─────────────────────────────────────────────────────────────
+
+    private Order orderWithStatus(OrderStatus status) {
+        Order o = new Order();
+        o.setId(orderId);
+        o.setProductId(productId);
+        o.setQuantity(2);
+        o.setStatus(status);
+        o.setTotalPrice(BigDecimal.ZERO);
+        o.setCreatedAt(Instant.now());
+        return o;
+    }
+
+    private OrderResponse responseWithStatus(OrderStatus status) {
+        return new OrderResponse(orderId, productId, 2, status, BigDecimal.ZERO, Instant.now());
+    }
+
+    // ── createOrder ──────────────────────────────────────────────────────────
 
     @Test
     void createOrder_whenStockAvailable_shouldSaveOrderAndPublishEvent() {
         CreateOrderRequest request = new CreateOrderRequest(productId, 2);
-
-        Order savedOrder = new Order();
-        savedOrder.setId(UUID.randomUUID());
-        savedOrder.setProductId(productId);
-        savedOrder.setQuantity(2);
-        savedOrder.setStatus(OrderStatus.CREATED);
-        savedOrder.setTotalPrice(BigDecimal.ZERO);
-        savedOrder.setCreatedAt(Instant.now());
-
-        OrderResponse expectedResponse = new OrderResponse(
-                savedOrder.getId(), productId, 2, OrderStatus.CREATED, BigDecimal.ZERO, savedOrder.getCreatedAt());
+        Order saved = orderWithStatus(OrderStatus.CREATED);
+        OrderResponse expected = responseWithStatus(OrderStatus.CREATED);
 
         given(inventoryClient.checkAvailability(productId, 2)).willReturn(true);
-        given(orderRepository.save(any(Order.class))).willReturn(savedOrder);
-        given(orderMapper.toResponse(savedOrder)).willReturn(expectedResponse);
+        given(orderRepository.save(any(Order.class))).willReturn(saved);
+        given(orderMapper.toResponse(saved)).willReturn(expected);
 
         OrderResponse result = orderService.createOrder(request);
 
-        assertThat(result.productId()).isEqualTo(productId);
-        assertThat(result.quantity()).isEqualTo(2);
         assertThat(result.status()).isEqualTo(OrderStatus.CREATED);
+        assertThat(result.productId()).isEqualTo(productId);
 
-        ArgumentCaptor<OrderCreatedEvent> eventCaptor = ArgumentCaptor.forClass(OrderCreatedEvent.class);
-        then(kafkaTemplate).should().send(eq("order-created"), eventCaptor.capture());
-        assertThat(eventCaptor.getValue().getProductId()).isEqualTo(productId);
-        assertThat(eventCaptor.getValue().getQuantity()).isEqualTo(2);
+        ArgumentCaptor<OrderCreatedEvent> captor = ArgumentCaptor.forClass(OrderCreatedEvent.class);
+        then(kafkaTemplate).should().send(eq("order-created"), captor.capture());
+        assertThat(captor.getValue().getProductId()).isEqualTo(productId);
+        assertThat(captor.getValue().getQuantity()).isEqualTo(2);
     }
 
     @Test
@@ -86,5 +99,121 @@ class OrderServiceImplTest {
 
         then(orderRepository).shouldHaveNoInteractions();
         then(kafkaTemplate).shouldHaveNoInteractions();
+    }
+
+    // ── getById ──────────────────────────────────────────────────────────────
+
+    @Test
+    void getById_whenExists_shouldReturnOrderResponse() {
+        Order order = orderWithStatus(OrderStatus.CREATED);
+        OrderResponse expected = responseWithStatus(OrderStatus.CREATED);
+
+        given(orderRepository.findById(orderId)).willReturn(Optional.of(order));
+        given(orderMapper.toResponse(order)).willReturn(expected);
+
+        OrderResponse result = orderService.getById(orderId);
+
+        assertThat(result.id()).isEqualTo(orderId);
+        assertThat(result.status()).isEqualTo(OrderStatus.CREATED);
+    }
+
+    @Test
+    void getById_whenNotFound_shouldThrowOrderNotFoundException() {
+        given(orderRepository.findById(orderId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> orderService.getById(orderId))
+                .isInstanceOf(OrderNotFoundException.class)
+                .hasMessageContaining(orderId.toString());
+    }
+
+    // ── cancelOrder ──────────────────────────────────────────────────────────
+
+    @Test
+    void cancelOrder_whenCreated_shouldSetCancelledAndReturn() {
+        Order order = orderWithStatus(OrderStatus.CREATED);
+        Order saved = orderWithStatus(OrderStatus.CANCELLED);
+        OrderResponse expected = responseWithStatus(OrderStatus.CANCELLED);
+
+        given(orderRepository.findById(orderId)).willReturn(Optional.of(order));
+        given(orderRepository.save(order)).willReturn(saved);
+        given(orderMapper.toResponse(saved)).willReturn(expected);
+
+        OrderResponse result = orderService.cancelOrder(orderId);
+
+        assertThat(result.status()).isEqualTo(OrderStatus.CANCELLED);
+    }
+
+    @Test
+    void cancelOrder_whenAlreadyCancelled_shouldBeIdempotent() {
+        Order order = orderWithStatus(OrderStatus.CANCELLED);
+        OrderResponse expected = responseWithStatus(OrderStatus.CANCELLED);
+
+        given(orderRepository.findById(orderId)).willReturn(Optional.of(order));
+        given(orderMapper.toResponse(order)).willReturn(expected);
+
+        OrderResponse result = orderService.cancelOrder(orderId);
+
+        assertThat(result.status()).isEqualTo(OrderStatus.CANCELLED);
+        then(orderRepository).should(never()).save(any());
+    }
+
+    @Test
+    void cancelOrder_whenNotFound_shouldThrowOrderNotFoundException() {
+        given(orderRepository.findById(orderId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> orderService.cancelOrder(orderId))
+                .isInstanceOf(OrderNotFoundException.class)
+                .hasMessageContaining(orderId.toString());
+    }
+
+    // ── confirmOrder ─────────────────────────────────────────────────────────
+
+    @Test
+    void confirmOrder_whenCreated_shouldSetConfirmedAndReturn() {
+        Order order = orderWithStatus(OrderStatus.CREATED);
+        Order saved = orderWithStatus(OrderStatus.CONFIRMED);
+        OrderResponse expected = responseWithStatus(OrderStatus.CONFIRMED);
+
+        given(orderRepository.findById(orderId)).willReturn(Optional.of(order));
+        given(orderRepository.save(order)).willReturn(saved);
+        given(orderMapper.toResponse(saved)).willReturn(expected);
+
+        OrderResponse result = orderService.confirmOrder(orderId);
+
+        assertThat(result.status()).isEqualTo(OrderStatus.CONFIRMED);
+    }
+
+    @Test
+    void confirmOrder_whenAlreadyConfirmed_shouldBeIdempotent() {
+        Order order = orderWithStatus(OrderStatus.CONFIRMED);
+        OrderResponse expected = responseWithStatus(OrderStatus.CONFIRMED);
+
+        given(orderRepository.findById(orderId)).willReturn(Optional.of(order));
+        given(orderMapper.toResponse(order)).willReturn(expected);
+
+        OrderResponse result = orderService.confirmOrder(orderId);
+
+        assertThat(result.status()).isEqualTo(OrderStatus.CONFIRMED);
+        then(orderRepository).should(never()).save(any());
+    }
+
+    @Test
+    void confirmOrder_whenCancelled_shouldThrowOrderStatusTransitionException() {
+        Order order = orderWithStatus(OrderStatus.CANCELLED);
+        given(orderRepository.findById(orderId)).willReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> orderService.confirmOrder(orderId))
+                .isInstanceOf(OrderStatusTransitionException.class)
+                .hasMessageContaining("CANCELLED")
+                .hasMessageContaining("CONFIRMED");
+    }
+
+    @Test
+    void confirmOrder_whenNotFound_shouldThrowOrderNotFoundException() {
+        given(orderRepository.findById(orderId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> orderService.confirmOrder(orderId))
+                .isInstanceOf(OrderNotFoundException.class)
+                .hasMessageContaining(orderId.toString());
     }
 }

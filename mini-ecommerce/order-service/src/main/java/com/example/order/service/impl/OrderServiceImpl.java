@@ -2,18 +2,23 @@ package com.example.order.service.impl;
 
 import com.example.events.OrderCreatedEvent;
 import com.example.order.client.InventoryClient;
-import com.example.order.exception.OrderNotFoundException;
 import com.example.order.config.KafkaConfig;
 import com.example.order.dto.request.CreateOrderRequest;
 import com.example.order.dto.response.OrderResponse;
 import com.example.order.entity.Order;
 import com.example.order.entity.enums.OrderStatus;
 import com.example.order.exception.InsufficientStockException;
+import com.example.order.exception.OrderNotFoundException;
+import com.example.order.exception.OrderStatusTransitionException;
 import com.example.order.mapper.OrderMapper;
 import com.example.order.repository.OrderRepository;
+import com.example.order.service.OrderFilter;
 import com.example.order.service.OrderService;
+import com.example.order.service.OrderSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +37,21 @@ public class OrderServiceImpl implements OrderService {
     private final InventoryClient inventoryClient;
     private final KafkaTemplate<String, OrderCreatedEvent> kafkaTemplate;
     private final OrderMapper orderMapper;
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> findAll(OrderFilter filter, Pageable pageable) {
+        return orderRepository.findAll(OrderSpecification.withFilter(filter), pageable)
+                .map(orderMapper::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderResponse getById(UUID orderId) {
+        return orderRepository.findById(orderId)
+                .map(orderMapper::toResponse)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+    }
 
     @Override
     public OrderResponse createOrder(CreateOrderRequest request) {
@@ -65,11 +85,38 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public void cancelOrder(UUID orderId) {
+    public OrderResponse cancelOrder(UUID orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            log.info("Order already cancelled (idempotent): orderId={}", orderId);
+            return orderMapper.toResponse(order);
+        }
+
         order.setStatus(OrderStatus.CANCELLED);
-        orderRepository.save(order);
+        Order saved = orderRepository.save(order);
         log.info("Order cancelled: orderId={}", orderId);
+        return orderMapper.toResponse(saved);
+    }
+
+    @Override
+    public OrderResponse confirmOrder(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        if (order.getStatus() == OrderStatus.CONFIRMED) {
+            log.info("Order already confirmed (idempotent): orderId={}", orderId);
+            return orderMapper.toResponse(order);
+        }
+
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new OrderStatusTransitionException(orderId, OrderStatus.CANCELLED, OrderStatus.CONFIRMED);
+        }
+
+        order.setStatus(OrderStatus.CONFIRMED);
+        Order saved = orderRepository.save(order);
+        log.info("Order confirmed: orderId={}", orderId);
+        return orderMapper.toResponse(saved);
     }
 }
