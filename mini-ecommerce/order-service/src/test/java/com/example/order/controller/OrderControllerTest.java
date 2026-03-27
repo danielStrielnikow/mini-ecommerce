@@ -2,6 +2,7 @@ package com.example.order.controller;
 
 import com.example.order.dto.request.CreateOrderRequest;
 import com.example.order.dto.response.OrderResponse;
+import com.example.order.dto.response.OrderSummaryResponse;
 import com.example.order.entity.enums.OrderStatus;
 import com.example.order.exception.GlobalExceptionHandler;
 import com.example.order.exception.InsufficientStockException;
@@ -98,10 +99,14 @@ class OrderControllerTest {
 
     // ── GET /api/orders ──────────────────────────────────────────────────────
 
+    private OrderSummaryResponse sampleSummary(OrderStatus status) {
+        return new OrderSummaryResponse(orderId, productId, status, new BigDecimal("199.98"));
+    }
+
     @Test
     void findAll_shouldReturn200WithPage() throws Exception {
         given(orderService.findAll(any(), any(Pageable.class)))
-                .willReturn(new PageImpl<>(List.of(sampleResponse(OrderStatus.CREATED))));
+                .willReturn(new PageImpl<>(List.of(sampleSummary(OrderStatus.CREATED))));
 
         mockMvc.perform(get("/api/orders"))
                 .andExpect(status().isOk())
@@ -111,7 +116,7 @@ class OrderControllerTest {
     @Test
     void findAll_withStatusFilter_shouldReturn200() throws Exception {
         given(orderService.findAll(any(), any(Pageable.class)))
-                .willReturn(new PageImpl<>(List.of(sampleResponse(OrderStatus.CONFIRMED))));
+                .willReturn(new PageImpl<>(List.of(sampleSummary(OrderStatus.CONFIRMED))));
 
         mockMvc.perform(get("/api/orders").param("status", "CONFIRMED"))
                 .andExpect(status().isOk())

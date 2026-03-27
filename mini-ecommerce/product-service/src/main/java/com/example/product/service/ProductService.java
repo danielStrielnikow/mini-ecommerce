@@ -3,6 +3,7 @@ package com.example.product.service;
 import com.example.product.dto.request.CreateProductRequest;
 import com.example.product.dto.request.UpdateProductRequest;
 import com.example.product.dto.response.ProductResponse;
+import com.example.product.dto.response.ProductSummaryResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -10,7 +11,7 @@ import java.util.UUID;
 
 public interface ProductService {
 
-    Page<ProductResponse> findAll(ProductFilter filter, Pageable pageable);
+    Page<ProductSummaryResponse> findAll(ProductFilter filter, Pageable pageable);
 
     ProductResponse findById(UUID id);
 

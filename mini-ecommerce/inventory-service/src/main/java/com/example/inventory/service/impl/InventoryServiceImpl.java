@@ -5,6 +5,7 @@ import com.example.events.StockRestoredEvent;
 import com.example.inventory.config.KafkaConfig;
 import com.example.inventory.dto.request.CreateInventoryRequest;
 import com.example.inventory.dto.response.InventoryResponse;
+import com.example.inventory.dto.response.InventorySummaryResponse;
 import com.example.inventory.entity.Inventory;
 import com.example.inventory.exception.DuplicateInventoryException;
 import com.example.inventory.exception.InsufficientStockException;
@@ -36,10 +37,10 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<InventoryResponse> findAll(InventoryFilter filter, Pageable pageable) {
+    public Page<InventorySummaryResponse> findAll(InventoryFilter filter, Pageable pageable) {
         return inventoryRepository
                 .findAll(InventorySpecification.withFilter(filter), pageable)
-                .map(inventoryMapper::toResponse);
+                .map(inventoryMapper::toSummary);
     }
 
     @Override

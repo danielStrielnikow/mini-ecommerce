@@ -2,6 +2,7 @@ package com.example.order.service;
 
 import com.example.order.dto.request.CreateOrderRequest;
 import com.example.order.dto.response.OrderResponse;
+import com.example.order.dto.response.OrderSummaryResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -9,7 +10,7 @@ import java.util.UUID;
 
 public interface OrderService {
 
-    Page<OrderResponse> findAll(OrderFilter filter, Pageable pageable);
+    Page<OrderSummaryResponse> findAll(OrderFilter filter, Pageable pageable);
 
     OrderResponse getById(UUID orderId);
 

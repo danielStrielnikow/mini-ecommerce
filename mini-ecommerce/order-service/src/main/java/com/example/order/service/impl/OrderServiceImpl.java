@@ -7,6 +7,7 @@ import com.example.order.client.ProductClient;
 import com.example.order.config.KafkaConfig;
 import com.example.order.dto.request.CreateOrderRequest;
 import com.example.order.dto.response.OrderResponse;
+import com.example.order.dto.response.OrderSummaryResponse;
 import com.example.order.dto.response.ProductPriceResponse;
 import com.example.order.entity.Order;
 import com.example.order.entity.enums.OrderStatus;
@@ -47,9 +48,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<OrderResponse> findAll(OrderFilter filter, Pageable pageable) {
+    public Page<OrderSummaryResponse> findAll(OrderFilter filter, Pageable pageable) {
         return orderRepository.findAll(OrderSpecification.withFilter(filter), pageable)
-                .map(orderMapper::toResponse);
+                .map(orderMapper::toSummary);
     }
 
     @Override

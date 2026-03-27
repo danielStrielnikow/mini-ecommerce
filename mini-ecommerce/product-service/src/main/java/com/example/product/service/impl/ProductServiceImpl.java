@@ -6,6 +6,7 @@ import com.example.product.config.KafkaConfig;
 import com.example.product.dto.request.CreateProductRequest;
 import com.example.product.dto.request.UpdateProductRequest;
 import com.example.product.dto.response.ProductResponse;
+import com.example.product.dto.response.ProductSummaryResponse;
 import com.example.product.entity.Product;
 import com.example.product.entity.ProductStatus;
 import com.example.product.exception.ProductNotFoundException;
@@ -36,10 +37,10 @@ public class ProductServiceImpl implements ProductService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
-    public Page<ProductResponse> findAll(ProductFilter filter, Pageable pageable) {
+    public Page<ProductSummaryResponse> findAll(ProductFilter filter, Pageable pageable) {
         return productRepository
                 .findAll(ProductSpecification.withFilter(filter), pageable)
-                .map(productMapper::toResponse);
+                .map(productMapper::toSummary);
     }
 
     @Override

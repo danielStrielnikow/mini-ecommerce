@@ -1,6 +1,7 @@
 package com.example.product.controller;
 
 import com.example.product.dto.response.ProductResponse;
+import com.example.product.dto.response.ProductSummaryResponse;
 import com.example.product.entity.ProductStatus;
 import com.example.product.exception.ProductNotFoundException;
 import com.example.product.service.ProductService;
@@ -38,11 +39,15 @@ class ProductControllerTest {
                 new BigDecimal("4999.99"), ProductStatus.ACTIVE, Instant.now());
     }
 
+    private ProductSummaryResponse sampleSummary() {
+        return new ProductSummaryResponse(productId, "Laptop Pro", new BigDecimal("4999.99"), ProductStatus.ACTIVE);
+    }
+
     // ── GET /api/products ────────────────────────────────────────────────────
 
     @Test
     void getAll_shouldReturn200WithPagedResults() throws Exception {
-        Page<ProductResponse> page = new PageImpl<>(List.of(sampleResponse()));
+        Page<ProductSummaryResponse> page = new PageImpl<>(List.of(sampleSummary()));
         given(productService.findAll(any(), any(Pageable.class))).willReturn(page);
 
         mockMvc.perform(get("/api/products").accept(MediaType.APPLICATION_JSON))
@@ -55,7 +60,7 @@ class ProductControllerTest {
 
     @Test
     void getAll_withFilters_shouldReturn200() throws Exception {
-        Page<ProductResponse> page = new PageImpl<>(List.of(sampleResponse()));
+        Page<ProductSummaryResponse> page = new PageImpl<>(List.of(sampleSummary()));
         given(productService.findAll(any(), any(Pageable.class))).willReturn(page);
 
         mockMvc.perform(get("/api/products")

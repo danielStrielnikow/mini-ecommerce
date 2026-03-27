@@ -3,6 +3,7 @@ package com.example.inventory.controller;
 import com.example.inventory.dto.request.CreateInventoryRequest;
 import com.example.inventory.dto.request.RestockRequest;
 import com.example.inventory.dto.response.InventoryResponse;
+import com.example.inventory.dto.response.InventorySummaryResponse;
 import com.example.inventory.service.InventoryFilter;
 import com.example.inventory.service.InventoryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,7 +32,7 @@ public class InventoryController {
     @GetMapping
     @Operation(summary = "List inventory records with optional filters")
     @ApiResponse(responseCode = "200", description = "Inventory records returned successfully")
-    public ResponseEntity<Page<InventoryResponse>> findAll(
+    public ResponseEntity<Page<InventorySummaryResponse>> findAll(
             @RequestParam(required = false) Boolean available,
             @RequestParam(required = false) Integer minQuantity,
             @RequestParam(required = false) Integer maxQuantity,
