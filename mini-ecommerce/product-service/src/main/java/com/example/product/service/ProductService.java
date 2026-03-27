@@ -1,13 +1,22 @@
 package com.example.product.service;
 
+import com.example.product.dto.request.CreateProductRequest;
+import com.example.product.dto.request.UpdateProductRequest;
 import com.example.product.dto.response.ProductResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 import java.util.UUID;
 
 public interface ProductService {
 
-    List<ProductResponse> findAll();
+    Page<ProductResponse> findAll(Pageable pageable);
 
     ProductResponse findById(UUID id);
+
+    ProductResponse create(CreateProductRequest request);
+
+    ProductResponse update(UUID id, UpdateProductRequest request);
+
+    void delete(UUID id);
 }
