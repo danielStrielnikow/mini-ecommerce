@@ -1,6 +1,7 @@
 package com.example.order.service.impl;
 
 import com.example.events.OrderCreatedEvent;
+import com.example.events.OrderExpiredEvent;
 import com.example.order.client.InventoryClient;
 import com.example.order.config.KafkaConfig;
 import com.example.order.dto.request.CreateOrderRequest;
@@ -100,8 +101,32 @@ public class OrderServiceImpl implements OrderService {
 
         order.setStatus(OrderStatus.CANCELLED);
         Order saved = orderRepository.save(order);
-        log.info("Order cancelled: orderId={}", orderId);
+
+        OrderExpiredEvent event = OrderExpiredEvent.builder()
+                .orderId(saved.getId())
+                .productId(saved.getProductId())
+                .quantity(saved.getQuantity())
+                .occurredAt(Instant.now())
+                .build();
+        kafkaTemplate.send(KafkaConfig.ORDER_EXPIRED_TOPIC, event);
+        log.info("Order cancelled and stock restore event published: orderId={}", orderId);
+
         return orderMapper.toResponse(saved);
+    }
+
+    @Override
+    public void cancelOrderByEvent(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            log.info("Order already cancelled (idempotent): orderId={}", orderId);
+            return;
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
+        orderRepository.save(order);
+        log.info("Order cancelled by event (no stock restore): orderId={}", orderId);
     }
 
     @Override

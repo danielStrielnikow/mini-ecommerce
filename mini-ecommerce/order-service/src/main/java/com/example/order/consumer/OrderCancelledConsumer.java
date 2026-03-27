@@ -20,7 +20,7 @@ public class OrderCancelledConsumer {
         log.info("Order cancelled event received: orderId={}, reason={}",
                 event.getOrderId(), event.getReason());
         try {
-            orderService.cancelOrder(event.getOrderId());
+            orderService.cancelOrderByEvent(event.getOrderId());
         } catch (OrderNotFoundException e) {
             log.warn("Order not found for cancellation: orderId={}", event.getOrderId());
         }

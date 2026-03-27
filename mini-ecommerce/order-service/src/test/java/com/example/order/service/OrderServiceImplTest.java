@@ -1,6 +1,7 @@
 package com.example.order.service;
 
 import com.example.events.OrderCreatedEvent;
+import com.example.events.OrderExpiredEvent;
 import com.example.order.client.InventoryClient;
 import com.example.order.dto.request.CreateOrderRequest;
 import com.example.order.dto.response.OrderResponse;
@@ -129,7 +130,7 @@ class OrderServiceImplTest {
     // ── cancelOrder ──────────────────────────────────────────────────────────
 
     @Test
-    void cancelOrder_whenCreated_shouldSetCancelledAndReturn() {
+    void cancelOrder_whenCreated_shouldSetCancelledAndPublishStockRestoreEvent() {
         Order order = orderWithStatus(OrderStatus.CREATED);
         Order saved = orderWithStatus(OrderStatus.CANCELLED);
         OrderResponse expected = responseWithStatus(OrderStatus.CANCELLED);
@@ -141,6 +142,11 @@ class OrderServiceImplTest {
         OrderResponse result = orderService.cancelOrder(orderId);
 
         assertThat(result.status()).isEqualTo(OrderStatus.CANCELLED);
+
+        ArgumentCaptor<OrderExpiredEvent> captor = ArgumentCaptor.forClass(OrderExpiredEvent.class);
+        then(kafkaTemplate).should().send(eq("order-expired"), captor.capture());
+        assertThat(captor.getValue().getProductId()).isEqualTo(productId);
+        assertThat(captor.getValue().getQuantity()).isEqualTo(2);
     }
 
     @Test
@@ -155,6 +161,7 @@ class OrderServiceImplTest {
 
         assertThat(result.status()).isEqualTo(OrderStatus.CANCELLED);
         then(orderRepository).should(never()).save(any());
+        then(kafkaTemplate).shouldHaveNoInteractions();
     }
 
     @Test
@@ -164,6 +171,29 @@ class OrderServiceImplTest {
         assertThatThrownBy(() -> orderService.cancelOrder(orderId))
                 .isInstanceOf(OrderNotFoundException.class)
                 .hasMessageContaining(orderId.toString());
+    }
+
+    @Test
+    void cancelOrderByEvent_whenCreated_shouldSetCancelledWithoutPublishingEvent() {
+        Order order = orderWithStatus(OrderStatus.CREATED);
+        given(orderRepository.findById(orderId)).willReturn(Optional.of(order));
+        given(orderRepository.save(order)).willReturn(orderWithStatus(OrderStatus.CANCELLED));
+
+        orderService.cancelOrderByEvent(orderId);
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        then(kafkaTemplate).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void cancelOrderByEvent_whenAlreadyCancelled_shouldBeIdempotent() {
+        Order order = orderWithStatus(OrderStatus.CANCELLED);
+        given(orderRepository.findById(orderId)).willReturn(Optional.of(order));
+
+        orderService.cancelOrderByEvent(orderId);
+
+        then(orderRepository).should(never()).save(any());
+        then(kafkaTemplate).shouldHaveNoInteractions();
     }
 
     // ── confirmOrder ─────────────────────────────────────────────────────────

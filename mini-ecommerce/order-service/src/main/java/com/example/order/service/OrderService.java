@@ -15,7 +15,11 @@ public interface OrderService {
 
     OrderResponse createOrder(CreateOrderRequest request);
 
+    // Called from HTTP endpoint — cancels order and publishes event to restore stock
     OrderResponse cancelOrder(UUID orderId);
+
+    // Called from Kafka consumers — only sets CANCELLED status, stock was never decreased
+    void cancelOrderByEvent(UUID orderId);
 
     OrderResponse confirmOrder(UUID orderId);
 }
