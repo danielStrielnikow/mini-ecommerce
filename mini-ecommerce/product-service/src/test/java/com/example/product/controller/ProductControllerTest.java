@@ -174,6 +174,46 @@ class ProductControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    // ── PATCH /api/products/{id}/deactivate & /activate ─────────────────────
+
+    @Test
+    void deactivate_shouldReturn200WithInactiveProduct() throws Exception {
+        ProductResponse inactive = new ProductResponse(productId, "Laptop Pro", "desc",
+                new BigDecimal("4999.99"), ProductStatus.INACTIVE, Instant.now());
+        given(productService.deactivate(productId)).willReturn(inactive);
+
+        mockMvc.perform(patch("/api/products/{id}/deactivate", productId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("INACTIVE"));
+    }
+
+    @Test
+    void deactivate_whenNotFound_shouldReturn404() throws Exception {
+        UUID unknownId = UUID.randomUUID();
+        given(productService.deactivate(unknownId)).willThrow(new ProductNotFoundException(unknownId));
+
+        mockMvc.perform(patch("/api/products/{id}/deactivate", unknownId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void activate_shouldReturn200WithActiveProduct() throws Exception {
+        given(productService.activate(productId)).willReturn(sampleResponse());
+
+        mockMvc.perform(patch("/api/products/{id}/activate", productId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+    }
+
+    @Test
+    void activate_whenNotFound_shouldReturn404() throws Exception {
+        UUID unknownId = UUID.randomUUID();
+        given(productService.activate(unknownId)).willThrow(new ProductNotFoundException(unknownId));
+
+        mockMvc.perform(patch("/api/products/{id}/activate", unknownId))
+                .andExpect(status().isNotFound());
+    }
+
     // ── DELETE /api/products/{id} ────────────────────────────────────────────
 
     @Test

@@ -21,4 +21,8 @@ public interface ProductService {
     void delete(UUID id);
 
     void hardDelete(UUID id);
+
+    ProductResponse deactivate(UUID id);
+
+    ProductResponse activate(UUID id);
 }

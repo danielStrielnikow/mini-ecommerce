@@ -1,5 +1,6 @@
 package com.example.product.service;
 
+import com.example.events.ProductDeletedEvent;
 import com.example.product.dto.request.CreateProductRequest;
 import com.example.product.dto.request.UpdateProductRequest;
 import com.example.product.dto.response.ProductResponse;
@@ -19,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -28,6 +30,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,6 +38,7 @@ class ProductServiceImplTest {
 
     @Mock private ProductRepository productRepository;
     @Mock private ProductMapper productMapper;
+    @Mock private KafkaTemplate<String, ProductDeletedEvent> kafkaTemplate;
 
     @InjectMocks private ProductServiceImpl productService;
 
@@ -185,25 +189,73 @@ class ProductServiceImplTest {
         then(productRepository).should(never()).save(any());
     }
 
+    // ── deactivate / activate ────────────────────────────────────────────────
+
+    @Test
+    void deactivate_whenProductExists_shouldSetStatusInactiveAndReturnResponse() {
+        given(productRepository.findById(productId)).willReturn(Optional.of(product));
+        given(productRepository.save(product)).willReturn(product);
+        given(productMapper.toResponse(product)).willReturn(productResponse);
+
+        ProductResponse result = productService.deactivate(productId);
+
+        assertThat(product.getStatus()).isEqualTo(ProductStatus.INACTIVE);
+        assertThat(result).isNotNull();
+        then(productRepository).should().save(product);
+    }
+
+    @Test
+    void deactivate_whenNotFound_shouldThrowProductNotFoundException() {
+        UUID unknownId = UUID.randomUUID();
+        given(productRepository.findById(unknownId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productService.deactivate(unknownId))
+                .isInstanceOf(ProductNotFoundException.class);
+    }
+
+    @Test
+    void activate_whenProductExists_shouldSetStatusActiveAndReturnResponse() {
+        product.setStatus(ProductStatus.INACTIVE);
+        given(productRepository.findById(productId)).willReturn(Optional.of(product));
+        given(productRepository.save(product)).willReturn(product);
+        given(productMapper.toResponse(product)).willReturn(productResponse);
+
+        ProductResponse result = productService.activate(productId);
+
+        assertThat(product.getStatus()).isEqualTo(ProductStatus.ACTIVE);
+        assertThat(result).isNotNull();
+        then(productRepository).should().save(product);
+    }
+
+    @Test
+    void activate_whenNotFound_shouldThrowProductNotFoundException() {
+        UUID unknownId = UUID.randomUUID();
+        given(productRepository.findById(unknownId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productService.activate(unknownId))
+                .isInstanceOf(ProductNotFoundException.class);
+    }
+
     // ── hardDelete ───────────────────────────────────────────────────────────
 
     @Test
-    void hardDelete_whenProductExists_shouldDeletePermanently() {
+    void hardDelete_whenProductExists_shouldDeleteAndPublishEvent() {
         given(productRepository.existsById(productId)).willReturn(true);
 
         productService.hardDelete(productId);
 
         then(productRepository).should().deleteById(productId);
-        then(productRepository).should(never()).save(any());
+        then(kafkaTemplate).should().send(eq("product-deleted"), any(ProductDeletedEvent.class));
     }
 
     @Test
-    void hardDelete_whenNotFound_shouldThrowProductNotFoundException() {
+    void hardDelete_whenNotFound_shouldThrowAndNotPublishEvent() {
         UUID unknownId = UUID.randomUUID();
         given(productRepository.existsById(unknownId)).willReturn(false);
 
         assertThatThrownBy(() -> productService.hardDelete(unknownId))
                 .isInstanceOf(ProductNotFoundException.class);
         then(productRepository).should(never()).deleteById(any());
+        then(kafkaTemplate).should(never()).send(any(), any(ProductDeletedEvent.class));
     }
 }

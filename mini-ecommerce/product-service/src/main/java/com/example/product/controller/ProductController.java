@@ -62,15 +62,27 @@ public class ProductController {
         return ResponseEntity.ok(productService.update(id, request));
     }
 
+    @PatchMapping("/{id}/deactivate")
+    @Operation(summary = "Deactivate a product — also triggered automatically via Kafka when stock hits 0")
+    public ResponseEntity<ProductResponse> deactivate(@PathVariable UUID id) {
+        return ResponseEntity.ok(productService.deactivate(id));
+    }
+
+    @PatchMapping("/{id}/activate")
+    @Operation(summary = "Activate a product")
+    public ResponseEntity<ProductResponse> activate(@PathVariable UUID id) {
+        return ResponseEntity.ok(productService.activate(id));
+    }
+
     @DeleteMapping("/{id}")
-    @Operation(summary = "Soft-delete a product")
+    @Operation(summary = "Soft-delete a product (sets deletedAt, hidden from all queries)")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         productService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}/permanent")
-    @Operation(summary = "Permanently delete a product")
+    @Operation(summary = "Permanently delete a product and notify inventory-service via Kafka")
     public ResponseEntity<Void> hardDelete(@PathVariable UUID id) {
         productService.hardDelete(id);
         return ResponseEntity.noContent().build();
