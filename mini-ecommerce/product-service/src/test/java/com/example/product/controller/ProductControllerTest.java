@@ -131,6 +131,26 @@ class ProductControllerTest {
     }
 
     @Test
+    void create_withSingleCharName_shouldReturn400() throws Exception {
+        mockMvc.perform(post("/api/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"A","description":"desc","price":99.99}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void create_withPunctuationOnlyName_shouldReturn400() throws Exception {
+        mockMvc.perform(post("/api/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":",,","description":"desc","price":99.99}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void create_withNegativePrice_shouldReturn400() throws Exception {
         mockMvc.perform(post("/api/products")
                         .contentType(MediaType.APPLICATION_JSON)
