@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -40,6 +41,16 @@ public class OrderCreatedConsumer {
         } catch (InventoryNotFoundException e) {
             log.warn("Inventory not found for orderId={}, productId={} — skipping",
                     event.getOrderId(), event.getProductId());
+        } catch (ObjectOptimisticLockingFailureException e) {
+            log.warn("Concurrent modification detected for orderId={}, productId={} — cancelling order",
+                    event.getOrderId(), event.getProductId());
+            kafkaTemplate.send(KafkaConfig.ORDER_CANCELLED_TOPIC,
+                    OrderCancelledEvent.builder()
+                            .orderId(event.getOrderId())
+                            .productId(event.getProductId())
+                            .reason("Concurrent modification — stock no longer available")
+                            .occurredAt(Instant.now())
+                            .build());
         }
     }
 }
