@@ -25,6 +25,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -60,15 +62,21 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponse create(CreateProductRequest request) {
         Product product = productMapper.toEntity(request);
         Product saved = productRepository.save(product);
-        try {
-            kafkaTemplate.send(KafkaConfig.PRODUCT_CREATED_TOPIC,
-                    ProductCreatedEvent.builder()
-                            .productId(saved.getId())
-                            .occurredAt(Instant.now())
-                            .build());
-        } catch (RuntimeException e) {
-            log.warn("{}", new EventPublishException(KafkaConfig.PRODUCT_CREATED_TOPIC, e).getMessage());
-        }
+        UUID savedId = saved.getId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    kafkaTemplate.send(KafkaConfig.PRODUCT_CREATED_TOPIC,
+                            ProductCreatedEvent.builder()
+                                    .productId(savedId)
+                                    .occurredAt(Instant.now())
+                                    .build());
+                } catch (RuntimeException e) {
+                    log.warn("{}", new EventPublishException(KafkaConfig.PRODUCT_CREATED_TOPIC, e).getMessage());
+                }
+            }
+        });
         return productMapper.toResponse(saved);
     }
 
@@ -100,15 +108,20 @@ public class ProductServiceImpl implements ProductService {
             throw new ProductNotFoundException(id);
         }
         productRepository.deleteById(id);
-        try {
-            kafkaTemplate.send(KafkaConfig.PRODUCT_DELETED_TOPIC,
-                    ProductDeletedEvent.builder()
-                            .productId(id)
-                            .deletedAt(Instant.now())
-                            .build());
-        } catch (RuntimeException e) {
-            throw new EventPublishException(KafkaConfig.PRODUCT_DELETED_TOPIC, e);
-        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    kafkaTemplate.send(KafkaConfig.PRODUCT_DELETED_TOPIC,
+                            ProductDeletedEvent.builder()
+                                    .productId(id)
+                                    .deletedAt(Instant.now())
+                                    .build());
+                } catch (RuntimeException e) {
+                    log.warn("{}", new EventPublishException(KafkaConfig.PRODUCT_DELETED_TOPIC, e).getMessage());
+                }
+            }
+        });
     }
 
     @Override
