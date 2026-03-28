@@ -1,0 +1,20 @@
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Maven
+target/
+*.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
