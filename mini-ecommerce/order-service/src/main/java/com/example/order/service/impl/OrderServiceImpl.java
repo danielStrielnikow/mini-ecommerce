@@ -166,6 +166,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setStatus(OrderStatus.CONFIRMED);
+        order.setConfirmedAt(Instant.now());
         Order saved = orderRepository.save(order);
         log.info("Order confirmed: orderId={}", orderId);
         return orderMapper.toResponse(saved);

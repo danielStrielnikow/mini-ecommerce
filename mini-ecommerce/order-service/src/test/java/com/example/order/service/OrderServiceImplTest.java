@@ -68,7 +68,7 @@ class OrderServiceImplTest {
     private OrderResponse responseWithStatus(OrderStatus status) {
         return new OrderResponse(orderId, productId, 2, status,
                 UNIT_PRICE.multiply(BigDecimal.valueOf(2)), Instant.now(),
-                Instant.now().plus(15, ChronoUnit.MINUTES));
+                Instant.now().plus(15, ChronoUnit.MINUTES), null);
     }
 
     private ProductPriceResponse activeProduct() {

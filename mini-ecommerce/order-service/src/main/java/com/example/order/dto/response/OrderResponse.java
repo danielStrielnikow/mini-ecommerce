@@ -13,5 +13,6 @@ public record OrderResponse(
         OrderStatus status,
         BigDecimal totalPrice,
         Instant createdAt,
-        Instant reservedUntil
+        Instant reservedUntil,
+        Instant confirmedAt
 ) {}

@@ -34,4 +34,7 @@ public class Order extends BaseEntity {
 
     @Column(name = "reserved_until")
     private Instant reservedUntil;
+
+    @Column(name = "confirmed_at")
+    private Instant confirmedAt;
 }
