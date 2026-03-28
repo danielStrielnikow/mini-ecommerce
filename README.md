@@ -83,6 +83,39 @@ docker compose up --build
 | PATCH  | /api/inventory/{productId}/restock| Restock product          |
 | DELETE | /api/inventory/{productId}        | Delete inventory record  |
 
+## Typical Usage Flow
+
+A complete happy-path scenario from product creation to order confirmation:
+
+```bash
+# 1. Create a product (inventory record is created automatically via Kafka)
+curl -X POST http://localhost:8081/api/products \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Laptop Pro", "description": "High-end laptop", "price": 4999.99}'
+# → returns { "id": "<PRODUCT_ID>", "status": "ACTIVE", ... }
+
+# 2. Restock the product (inventory starts at 0)
+curl -X PATCH http://localhost:8083/api/inventory/<PRODUCT_ID>/restock \
+  -H "Content-Type: application/json" \
+  -d '{"quantity": 10}'
+
+# 3. Create an order (validates product is ACTIVE, checks stock, reserves for 15 min)
+curl -X POST http://localhost:8082/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{"productId": "<PRODUCT_ID>", "quantity": 2}'
+# → returns { "id": "<ORDER_ID>", "status": "CREATED", "reservedUntil": "...", "totalPrice": 9999.98 }
+
+# 4. Confirm the order
+curl -X PATCH http://localhost:8082/api/orders/<ORDER_ID>/confirm
+# → returns { "status": "CONFIRMED", "confirmedAt": "...", ... }
+
+# Alternative: cancel the order (Saga compensation — stock is restored via Kafka)
+curl -X PATCH http://localhost:8082/api/orders/<ORDER_ID>/cancel
+# → returns { "status": "CANCELLED", ... }
+```
+
+> All endpoints are also available via **Swagger UI** at `/swagger-ui.html` on each service port.
+
 ## Kafka Event Flow
 
 ```
