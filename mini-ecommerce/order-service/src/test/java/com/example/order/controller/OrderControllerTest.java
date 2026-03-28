@@ -48,7 +48,7 @@ class OrderControllerTest {
 
     private OrderResponse sampleResponse(OrderStatus status) {
         return new OrderResponse(orderId, productId, 2, status, new BigDecimal("199.98"),
-                Instant.now(), Instant.now().plusSeconds(900));
+                Instant.now(), Instant.now().plusSeconds(900), null);
     }
 
     // ── POST /api/orders ─────────────────────────────────────────────────────
@@ -100,7 +100,8 @@ class OrderControllerTest {
     // ── GET /api/orders ──────────────────────────────────────────────────────
 
     private OrderSummaryResponse sampleSummary(OrderStatus status) {
-        return new OrderSummaryResponse(orderId, productId, status, new BigDecimal("199.98"));
+        return new OrderSummaryResponse(orderId, productId, 2, status, new BigDecimal("199.98"),
+                Instant.now(), Instant.now().plusSeconds(900), null);
     }
 
     @Test
