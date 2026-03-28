@@ -36,6 +36,8 @@ A microservices-based eCommerce backend built with Java 21 and Spring Boot 3.4.
 ## Quick Start
 
 ```bash
+git clone https://github.com/YOUR_USERNAME/mini-ecommerce.git
+cd mini-ecommerce/mini-ecommerce
 docker compose up --build
 ```
 
